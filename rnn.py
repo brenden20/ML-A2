@@ -34,7 +34,9 @@ class RNN(nn.Module):
         _, hidden = self.rnn(inputs)
         
         # Obtain output layer representations
-        predicted_vector = self.W(hidden.squeeze(0))
+        predicted_vector = self.W(hidden)
+        
+        predicted_vector = torch.sum(predicted_vector, dim=1)
         
         # Apply softmax
         predicted_vector = self.softmax(predicted_vector)
