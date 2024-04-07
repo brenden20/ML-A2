@@ -17,12 +17,12 @@ unk = '<UNK>'
 # Consult the PyTorch documentation for information on the functions used below:
 # https://pytorch.org/docs/stable/torch.html
 class RNN(nn.Module):
-    def __init__(self, input_dim, h):  # Add relevant parameters
+    def __init__(self, input_dim, h, output_dim):  # Add relevant parameters
         super(RNN, self).__init__()
         self.h = h
         self.numOfLayer = 1
         self.rnn = nn.RNN(input_dim, h, self.numOfLayer, nonlinearity='tanh')
-        self.W = nn.Linear(h, 5)
+        self.W = nn.Linear(h, output_dim)
         self.softmax = nn.LogSoftmax(dim=1)
         self.loss = nn.NLLLoss()
 
@@ -30,13 +30,13 @@ class RNN(nn.Module):
         return self.loss(predicted_vector, gold_label)
 
     def forward(self, inputs):
-        # [to fill] obtain hidden layer representation (https://pytorch.org/docs/stable/generated/torch.nn.RNN.html)
-        predicted_vector, hidden = self.rnn(inputs)
-        # [to fill] obtain output layer representations
-        predicted_vector = self.W(predicted_vector)
-        # [to fill] sum over output 
-        predicted_vector = self.W(predicted_vector[:, -1, :])
-        # [to fill] obtain probability dist.
+        # Obtain hidden layer representation
+        _, hidden = self.rnn(inputs)
+        
+        # Obtain output layer representations
+        predicted_vector = self.W(hidden.squeeze(0))
+        
+        # Apply softmax
         predicted_vector = self.softmax(predicted_vector)
         
         return predicted_vector
@@ -78,10 +78,10 @@ if __name__ == "__main__":
     # Option 3 will be the most time consuming, so we do not recommend starting with this
 
     print("========== Vectorizing data ==========")
-    model = RNN(50, args.hidden_dim)  # Fill in parameters
+    model = RNN(50, args.hidden_dim, 5)  # Fill in parameters
     # optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     optimizer = optim.Adam(model.parameters(), lr=0.01)
-    word_embedding = pickle.load(open('./Data_Embedding/word_embedding.pkl', 'rb'))
+    word_embedding = pickle.load(open('./word_embedding.pkl', 'rb'))
 
     stopping_condition = False
     epoch = 0
@@ -116,6 +116,7 @@ if __name__ == "__main__":
                 vectors = [word_embedding[i.lower()] if i.lower() in word_embedding.keys() else word_embedding['unk'] for i in input_words ]
 
                 # Transform the input into required shape
+                vectors = np.array(vectors)
                 vectors = torch.tensor(vectors).view(len(vectors), 1, -1)
                 output = model(vectors)
 
@@ -167,6 +168,7 @@ if __name__ == "__main__":
         print("Validation accuracy for epoch {}: {}".format(epoch + 1, correct / total))
         validation_accuracy = correct/total
 
+        '''
         if validation_accuracy < last_validation_accuracy and trainning_accuracy > last_train_accuracy:
             stopping_condition=True
             print("Training done to avoid overfitting!")
@@ -174,6 +176,7 @@ if __name__ == "__main__":
         else:
             last_validation_accuracy = validation_accuracy
             last_train_accuracy = trainning_accuracy
+        '''
 
         epoch += 1
 
