@@ -17,12 +17,17 @@ unk = '<UNK>'
 # Consult the PyTorch documentation for information on the functions used below:
 # https://pytorch.org/docs/stable/torch.html
 class RNN(nn.Module):
-    def __init__(self, input_dim, h, output_dim):  # Add relevant parameters
+    def __init__(self, input_dim, h, output_dim, num_layers=2, bidirectional=True, dropout=0.2, nonlinearity='relu'):
         super(RNN, self).__init__()
         self.h = h
-        self.numOfLayer = 1
-        self.rnn = nn.RNN(input_dim, h, self.numOfLayer, nonlinearity='tanh')
-        self.W = nn.Linear(h, output_dim)
+        self.num_layers = num_layers
+        self.bidirectional = bidirectional
+        self.dropout = dropout
+        self.nonlinearity = nonlinearity
+        
+        self.rnn = nn.RNN(input_dim, h, num_layers=num_layers, bidirectional=bidirectional, dropout=dropout, nonlinearity=nonlinearity)
+        self.W = nn.Linear(h * (2 if bidirectional else 1), output_dim)
+        self.activation = nn.ReLU()  # ReLU activation function
         self.softmax = nn.LogSoftmax(dim=1)
         self.loss = nn.NLLLoss()
 
@@ -33,10 +38,20 @@ class RNN(nn.Module):
         # Obtain hidden layer representation
         _, hidden = self.rnn(inputs)
         
+        # Flatten hidden state if bidirectional
+        if self.bidirectional:
+            hidden = torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim=1)
+        else:
+            hidden = hidden[-1,:,:]
+
+        # Apply dropout
+        hidden = nn.functional.dropout(hidden, p=self.dropout, training=self.training)
+
+        # Apply ReLU activation function
+        hidden = self.activation(hidden)
+
         # Obtain output layer representations
         predicted_vector = self.W(hidden)
-        
-        predicted_vector = torch.sum(predicted_vector, dim=1)
         
         # Apply softmax
         predicted_vector = self.softmax(predicted_vector)
