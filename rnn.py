@@ -16,29 +16,30 @@ import pickle
 unk = '<UNK>'
 # Consult the PyTorch documentation for information on the functions used below:
 # https://pytorch.org/docs/stable/torch.html
-class LSTM(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=8, bidirectional=True, dropout=0.5):
-        super(LSTM, self).__init__()
-        self.hidden_dim = hidden_dim
-        self.num_layers = num_layers
-        self.bidirectional = bidirectional
-
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=num_layers, bidirectional=bidirectional, dropout=dropout)
-        self.fc = nn.Linear(hidden_dim * (4 if bidirectional else 1), output_dim)
-        self.relu = nn.ReLU()
+class RNN(nn.Module):
+    def __init__(self, input_dim, h, output_dim):  # Add relevant parameters
+        super(RNN, self).__init__()
+        self.h = h
+        self.numOfLayer = 10
+        self.rnn = nn.RNN(input_dim, h, self.numOfLayer, nonlinearity='tanh')
+        self.W = nn.Linear(h, output_dim)
         self.softmax = nn.LogSoftmax(dim=1)
         self.loss = nn.NLLLoss()
 
-    def compute_loss(self, predicted_vector, gold_label):
+    def compute_Loss(self, predicted_vector, gold_label):
         return self.loss(predicted_vector, gold_label)
 
     def forward(self, inputs):
-        lstm_out, _ = self.lstm(inputs)
-        lstm_out = lstm_out[-1,:,:] if not self.bidirectional else torch.cat((lstm_out[-2,:,:], lstm_out[-1,:,:]), dim=1)
-        lstm_out = self.relu(lstm_out)
-        output = self.fc(lstm_out)
-        output = self.softmax(output)
-        return output
+        # Obtain hidden layer representation
+        _, hidden = self.rnn(inputs)
+        
+        # Obtain output layer representations
+        predicted_vector = self.W(hidden.squeeze(0))
+        
+        # Apply softmax
+        predicted_vector = self.softmax(predicted_vector)
+        
+        return predicted_vector
 
 
 def load_data(train_data, val_data):
@@ -77,7 +78,7 @@ if __name__ == "__main__":
     # Option 3 will be the most time consuming, so we do not recommend starting with this
 
     print("========== Vectorizing data ==========")
-    model = LSTM(50, args.hidden_dim, 5)  # Fill in parameters
+    model = RNN(50, args.hidden_dim, 5)  # Fill in parameters
     # optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     word_embedding = pickle.load(open('./word_embedding.pkl', 'rb'))
@@ -120,7 +121,7 @@ if __name__ == "__main__":
                 output = model(vectors)
 
                 # Get loss
-                example_loss = model.compute_loss(output.view(1,-1), torch.tensor([gold_label]))
+                example_loss = model.compute_Loss(output.view(1,-1), torch.tensor([gold_label]))
 
                 # Get predicted label
                 predicted_label = torch.argmax(output)
